@@ -1,0 +1,8 @@
+[package]
+name = "Aleatorio"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+spin = "0.10"
+k_board = { version = "1.2.1", features = ["standar", "f", "alt_lower_letter", "ctrl_lower_letter", "lower_letter"] }
