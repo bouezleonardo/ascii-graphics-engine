@@ -188,19 +188,19 @@ fn main(){
             Keys::Up => {
                 // If it is less than 90 degrees
                 if camera_ang < 1.0{
-                    rotate_camera(0.0, 0.0, 0.2);
+                    rotate_camera(0.0, 0.2);
                     camera_ang += 0.2;
                 }
             },
             Keys::Down => {
                 // If it is less than 90 degrees
                 if camera_ang > -1.0{
-                    rotate_camera(0.0, 0.0, -0.2);
+                    rotate_camera(0.0, -0.2);
                     camera_ang -= 0.2;
                 }
             },
-            Keys::Left => rotate_camera(0.0, 0.1, 0.0),
-            Keys::Right => rotate_camera(0.0, -0.1, 0.0),
+            Keys::Left => rotate_camera(0.1, 0.0),
+            Keys::Right => rotate_camera(-0.1, 0.0),
             
             Keys::Char('q') => break,
             _ => (),
@@ -208,7 +208,6 @@ fn main(){
         
         ang+= 0.017;
         //translate_camera(0.0, 0.0, ang*10.0);
-        thread::sleep(Duration::from_millis(17));
     }
     // Clear terminal
     std::process::Command::new("clear").status().unwrap();

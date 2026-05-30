@@ -19,7 +19,7 @@ const COLS: usize = 180;
 const ROWS: usize = 45;
 const SCREEN_SIZE: usize = COLS*ROWS;
 
-const PC_DISTANCE: f64 = 30.0;
+const PC_DISTANCE: f64 = 50.0;
 
 // Camera
 static CAMERA: Mutex<Camera> = Mutex::new(Camera{
@@ -385,45 +385,30 @@ pub fn rotate_3d(ang: f64, p: &mut [f64;3], axis: [f64;3]){
     
     // Angle of rotation in the yz plane
     let mut angyz: f64 = 0.0;
+       
+    // Get the angle between the axis and the yz plane
+    angzx = axis[0].atan2(axis[2]);        
+
+    if angzx != 0.0 {
+        rotate_y_3d(-angzx, p);
+        rotate_y_3d(-angzx, &mut ref_axis); // rotate the axis to get angyz later
+    }
     
-    // Length of the segment in the zx plane
-    let rzx: f64;
-    
-    // Length of the segment in the yz plane
-    let ryz: f64;
-    
-    // Rotate to yz plane
-    rzx = (axis[2]*axis[2] + axis[0]*axis[0]).sqrt();
-    
-    if rzx > 0.0 {
-        // Get the angle between the axis and the yz plane
-        angzx = (axis[2]/rzx).acos();        
-        
-        if angzx > 0.0 {
-            rotate_y_3d(-angzx, p);
-            rotate_y_3d(-angzx, &mut ref_axis); // rotate the axis to get angyz later
-        }
-        
-        // Rotate to y axis
-        ryz = (ref_axis[2]*ref_axis[2] + ref_axis[1]*ref_axis[1]).sqrt();
-        
-        // Get the angle between the axis and y axis
-        angyz = (ref_axis[1]/ryz).acos();
-        
-        if angyz > 0.0 {
-            rotate_x_3d(-angyz, p);
-        }
+    // Get the angle between the axis and y axis when it is in the yz plane
+    angyz = ref_axis[2].atan2(ref_axis[1]);
+    if angyz != 0.0 {
+        rotate_x_3d(-angyz, p);
     }
      
     // Apply the proper rotation
     rotate_y_3d(ang, p);
     
     // Undo the first rotations if needed
-    if angyz > 0.0 {
+    if angyz != 0.0 {
         rotate_x_3d(angyz, p);
     }
     
-    if angzx > 0.0 {
+    if angzx != 0.0 {
         rotate_y_3d(angzx, p);
     }
 }
@@ -447,27 +432,24 @@ pub fn translate_camera(dx: f64, dy: f64, dz: f64){
     camera.p0 = [camera.p0[0]+dx, camera.p0[1]+dy, camera.p0[2]+dz];
 }
 
-// Rotate camera
-pub fn rotate_camera(angn: f64, angv: f64, angu: f64){
+pub fn rotate_camera(angh: f64, angv: f64){
     let mut camera = CAMERA.lock();
     let mut axis: [f64;3];
     
-    if angn != 0.0 {
-        axis = [camera.n[0], camera.n[1], camera.n[2]];
-        rotate_3d(angn, &mut camera.v, axis);
-        rotate_3d(angn, &mut camera.u, axis);
+    if angh != 0.0 {
+        axis = [0.0, 1.0, 0.0];
+        rotate_3d(angh, &mut camera.v, axis);
+        rotate_3d(angh, &mut camera.u, axis);
+        rotate_3d(angh, &mut camera.n, axis);
     }
     
     if angv != 0.0 {
-        axis = [camera.v[0], camera.v[1], camera.v[2]];
+        axis = [camera.u[0], camera.u[1], camera.u[2]];
+        
+        // Apply proper rotation
+        rotate_3d(angv, &mut camera.v, axis);
         rotate_3d(angv, &mut camera.n, axis);
         rotate_3d(angv, &mut camera.u, axis);
-    }
-    
-    if angu != 0.0 {
-        axis = [camera.u[0], camera.u[1], camera.u[2]];
-        rotate_3d(angu, &mut camera.n, axis);
-        rotate_3d(angu, &mut camera.v, axis);
     }
 }
 
