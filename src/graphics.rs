@@ -300,7 +300,7 @@ fn find_segment(p: &mut [f32; 3], q: [f32; 3]) {
     // Using the 3d line equation (x-x0)/(x1-x0) = (y-y0)/(y1-y0) = (z-z0)/(z1-z0)
     
     // Calculate the value based on z
-    let ratio: f32 = (49.0 - p[2])/(q[2] - p[2]);
+    let ratio: f32 = (PC_DISTANCE - p[2])/(q[2] - p[2]);
     
     // Find x
     p[0] = (q[0]-p[0])*ratio + p[0];
