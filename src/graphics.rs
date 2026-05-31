@@ -3,23 +3,23 @@ use spin::Mutex;
 // Struct camera declaration
 struct Camera {
     // Camera position (in universe coordinates)
-    p0: [f64;3],
+    p0: [f32;3],
     // Normal vector to the projection plane (in universe coordinates)
-    n: [f64;3],
+    n: [f32;3],
     //  Vector in the yview direction (in universe coordinates)
-    v: [f64;3],
+    v: [f32;3],
     //  Vector in the xview direction (in universe coordinates)
-    u: [f64;3],
+    u: [f32;3],
     // Projection center (in camera coordinates)
-    pc: [f64;3],
+    pc: [f32;3],
 }
 
 // Resolution
-const COLS: usize = 180;
-const ROWS: usize = 45;
+const COLS: usize = 190;
+const ROWS: usize = 44;
 const SCREEN_SIZE: usize = COLS*ROWS;
 
-const PC_DISTANCE: f64 = 50.0;
+const PC_DISTANCE: f32 = 50.0;
 
 // Camera
 static CAMERA: Mutex<Camera> = Mutex::new(Camera{
@@ -31,10 +31,10 @@ static CAMERA: Mutex<Camera> = Mutex::new(Camera{
 });
 
 // Screen (in viewport coordinates)
-static SCREEN: Mutex<[char; SCREEN_SIZE]> = Mutex::new([' '; SCREEN_SIZE]);
+static SCREEN: Mutex<[u8; SCREEN_SIZE]> = Mutex::new([b' '; SCREEN_SIZE]);
 
 // Char that will be printed as a pixel
-static PIXEL_CHAR: Mutex<char> = Mutex::new('#');
+static PIXEL_CHAR: Mutex<u8> = Mutex::new(b'#');
 
 /*
 * Draw a segment on the SCREEN
@@ -42,26 +42,26 @@ static PIXEL_CHAR: Mutex<char> = Mutex::new('#');
 fn draw_segment(og: [i32; 2], dst: [i32; 2]) -> usize {
     
     // Max line size
-    const MAX_SIZE: usize = 10000;
+    const MAX_SIZE: usize = 5000;
     
     // Size of the biggest possible line on the SCREEN 25x25
     let mut line_x: [i32; MAX_SIZE] = [0;MAX_SIZE];
     let mut line_y: [i32; MAX_SIZE] = [0;MAX_SIZE];
     
      // Line equation
-    let mut x0: f64 = og[0] as f64;
-    let mut y0: f64 = og[1] as f64;
-    let mut x1: f64 = dst[0] as f64;
-    let mut y1: f64 = dst[1] as f64;
-    let mut x: f64 = x0;
-    let mut y: f64 = y0;
+    let mut x0: f32 = og[0] as f32;
+    let mut y0: f32 = og[1] as f32;
+    let mut x1: f32 = dst[0] as f32;
+    let mut y1: f32 = dst[1] as f32;
+    let mut x: f32 = x0;
+    let mut y: f32 = y0;
     
     // Make sure ordering is preserved
     if og[0] > dst [0] {
-        x0 = dst[0] as f64;
-        y0 = dst[1] as f64;
-        x1 = og[0] as f64;
-        y1 = og[1] as f64;
+        x0 = dst[0] as f32;
+        y0 = dst[1] as f32;
+        x1 = og[0] as f32;
+        y1 = og[1] as f32;
         x = x0;
         y = y0;
     }
@@ -75,8 +75,8 @@ fn draw_segment(og: [i32; 2], dst: [i32; 2]) -> usize {
     if og[0] == dst[0] {
         // Make sure ordering is preserved
         if og[1] > dst [1] {
-            y0 = dst[1] as f64;
-            y1 = og[1] as f64;
+            y0 = dst[1] as f32;
+            y1 = og[1] as f32;
             y = y0;
         }
 
@@ -115,11 +115,11 @@ fn draw_segment(og: [i32; 2], dst: [i32; 2]) -> usize {
 }
 
 // Clip the points in the window before converting to the viewport
-fn clip(x0: &mut f64, y0: &mut f64, x1: &mut f64, y1: &mut f64, xmin: f64, ymin: f64, xmax: f64, ymax: f64) -> bool{
+fn clip(x0: &mut f32, y0: &mut f32, x1: &mut f32, y1: &mut f32, xmin: f32, ymin: f32, xmax: f32, ymax: f32) -> bool{
     
     // Auxiliary variables
-    let mut x_aux: f64;
-    let mut y_aux: f64;
+    let mut x_aux: f32;
+    let mut y_aux: f32;
     
     // Check if the line between the points is visible
     if (*x0 < xmin && *x1 < xmin) || (*x0 > xmax && *x1 > xmax) {
@@ -230,18 +230,18 @@ fn clip(x0: &mut f64, y0: &mut f64, x1: &mut f64, y1: &mut f64, xmin: f64, ymin:
 }
 
 // Converts from the 2D Window coordinates to the viewport
-fn draw_line(og: [f64; 2], dst: [f64; 2], wc: [f64; 2]){
+fn draw_line(og: [f32; 2], dst: [f32; 2], wc: [f32; 2]){
     
     // Window limits
-    let xmin: f64 = wc[0] - ((COLS as f64)/2.0 - 1.0);
-    let xmax: f64 = wc[0] + (COLS as f64)/2.0 - 1.0;
-    let ymin: f64 = wc[1] - ((ROWS as f64)/2.0 - 1.0);
-    let ymax: f64 = wc[1] + (ROWS as f64)/2.0 - 1.0;
+    let xmin: f32 = wc[0] - ((COLS as f32)/2.0 - 1.0);
+    let xmax: f32 = wc[0] + (COLS as f32)/2.0 - 1.0;
+    let ymin: f32 = wc[1] - ((ROWS as f32)/2.0 - 1.0);
+    let ymax: f32 = wc[1] + (ROWS as f32)/2.0 - 1.0;
     
-    let mut x0: f64 = og[0];
-    let mut y0: f64 = og[1]/2.0; // Divide to account for the distortion of the terminal
-    let mut x1: f64 = dst[0];
-    let mut y1: f64 = dst[1]/2.0; // Divide to account for the distortion of the terminal
+    let mut x0: f32 = og[0];
+    let mut y0: f32 = og[1]/2.0; // Divide to account for the distortion of the terminal
+    let mut x1: f32 = dst[0];
+    let mut y1: f32 = dst[1]/2.0; // Divide to account for the distortion of the terminal
     
     // See if the line is visible after clipping
     let line_visible: bool;
@@ -250,11 +250,11 @@ fn draw_line(og: [f64; 2], dst: [f64; 2], wc: [f64; 2]){
     
     if line_visible {
         // Convert window coordinates to viewport coordinates
-        x0 = (x0 - xmin)*(COLS as f64 - 1.0)/(xmax-xmin);
-        y0 = (y0 - ymin)*(ROWS as f64 - 1.0)/(ymax-ymin);
+        x0 = (x0 - xmin)*(COLS as f32 - 1.0)/(xmax-xmin);
+        y0 = (y0 - ymin)*(ROWS as f32 - 1.0)/(ymax-ymin);
         
-        x1 = (x1 - xmin)*(COLS as f64 - 1.0)/(xmax-xmin);
-        y1 = (y1 - ymin)*(ROWS as f64 - 1.0)/(ymax-ymin);
+        x1 = (x1 - xmin)*(COLS as f32 - 1.0)/(xmax-xmin);
+        y1 = (y1 - ymin)*(ROWS as f32 - 1.0)/(ymax-ymin);
         
         // Draw on SCREEN
         draw_segment([x0 as i32, y0 as i32], [x1 as i32, y1 as i32]);
@@ -264,10 +264,10 @@ fn draw_line(og: [f64; 2], dst: [f64; 2], wc: [f64; 2]){
 /*
 * Convert a 3D point to the 2D projection
 */
-fn convert_to_2d(q: [f64; 3]) -> [f64; 2]{
+fn convert_to_2d(q: [f32; 3]) -> [f32; 2]{
     let camera = CAMERA.lock();
     
-    let mut p: [f64;2] = [0.0;2];
+    let mut p: [f32;2] = [0.0;2];
     
     p[0] = q[0]*camera.pc[2]/(-q[2]+camera.pc[2]); 
     p[1] = q[1]*camera.pc[2]/(-q[2]+camera.pc[2]);
@@ -276,17 +276,17 @@ fn convert_to_2d(q: [f64; 3]) -> [f64; 2]{
 }
 
 // Dot product between two arrays
-fn dot(p: [f64;3], q: [f64;3]) -> f64{
+fn dot(p: [f32;3], q: [f32;3]) -> f32{
     return p[0]*q[0] + p[1]*q[1] + p[2]*q[2];
 }
 
 /*
 * Convert a point in the universe coordinates to the camera coordinates
 */
-fn convert_to_camera_coord(q: [f64; 3]) -> [f64; 3]{
+fn convert_to_camera_coord(q: [f32; 3]) -> [f32; 3]{
     let camera = CAMERA.lock();
     
-    let mut p: [f64;3] = [0.0;3];
+    let mut p: [f32;3] = [0.0;3];
     
     p[0] = camera.u[0] * q[0] + camera.u[1] * q[1] + camera.u[2] * q[2] - dot(camera.u, camera.p0);
     p[1] = camera.v[0] * q[0] + camera.v[1] * q[1] + camera.v[2] * q[2] - dot(camera.v, camera.p0);
@@ -296,11 +296,11 @@ fn convert_to_camera_coord(q: [f64; 3]) -> [f64; 3]{
 }
 
 // Find a line segment that is visible
-fn find_segment(p: &mut [f64; 3], q: [f64; 3]) {
+fn find_segment(p: &mut [f32; 3], q: [f32; 3]) {
     // Using the 3d line equation (x-x0)/(x1-x0) = (y-y0)/(y1-y0) = (z-z0)/(z1-z0)
     
     // Calculate the value based on z
-    let ratio: f64 = (49.0 - p[2])/(q[2] - p[2]);
+    let ratio: f32 = (49.0 - p[2])/(q[2] - p[2]);
     
     // Find x
     p[0] = (q[0]-p[0])*ratio + p[0];
@@ -315,13 +315,13 @@ fn find_segment(p: &mut [f64; 3], q: [f64; 3]) {
 /*
 * Get two 3D points and convert them
 */
-pub fn line_3d(og: [f64; 3], dst: [f64; 3]) {    
+pub fn line_3d(og: [f32; 3], dst: [f32; 3]) {    
     // Convert points from universe to camera coordinates
-    let mut p_3d: [f64; 3] = convert_to_camera_coord(og);
-    let mut q_3d: [f64; 3] = convert_to_camera_coord(dst);
+    let mut p_3d: [f32; 3] = convert_to_camera_coord(og);
+    let mut q_3d: [f32; 3] = convert_to_camera_coord(dst);
     
-    let p_2d: [f64; 2];
-    let q_2d: [f64; 2];
+    let p_2d: [f32; 2];
+    let q_2d: [f32; 2];
     
     // Try to find a visible segment
     if p_3d[2] < PC_DISTANCE && q_3d[2] >= PC_DISTANCE {
@@ -341,50 +341,50 @@ pub fn line_3d(og: [f64; 3], dst: [f64; 3]) {
 }
 
 // Rotate in the x axis
-pub fn rotate_x_3d(ang: f64, p: &mut [f64;3]) {
-    let z0: f64 = p[2];
-    let y0: f64 = p[1];
+pub fn rotate_x_3d(ang: f32, p: &mut [f32;3]) {
+    let z0: f32 = p[2];
+    let y0: f32 = p[1];
     
-    let cos: f64 = ang.cos();
-    let sin: f64 = ang.sin();
+    let cos: f32 = ang.cos();
+    let sin: f32 = ang.sin();
     
     p[1] = y0*cos - z0*sin;
     p[2] = z0*cos + y0*sin;
 }
 
 // Rotate in the y axis
-pub fn rotate_y_3d(ang: f64, p: &mut [f64;3]) {
-    let z0: f64 = p[2];
-    let x0: f64 = p[0];
+pub fn rotate_y_3d(ang: f32, p: &mut [f32;3]) {
+    let z0: f32 = p[2];
+    let x0: f32 = p[0];
     
-    let cos: f64 = ang.cos();
-    let sin: f64 = ang.sin();
+    let cos: f32 = ang.cos();
+    let sin: f32 = ang.sin();
     
     p[2] = z0*cos - x0*sin;
     p[0] = x0*cos + z0*sin;
 }
 
 // Rotate in the z axis
-pub fn rotate_z_3d(ang: f64, p: &mut [f64;3]) {
-    let x0: f64 = p[0];
-    let y0: f64 = p[1];
+pub fn rotate_z_3d(ang: f32, p: &mut [f32;3]) {
+    let x0: f32 = p[0];
+    let y0: f32 = p[1];
     
-    let cos: f64 = ang.cos();
-    let sin: f64 = ang.sin();
+    let cos: f32 = ang.cos();
+    let sin: f32 = ang.sin();
     
     p[0] = x0*cos - y0*sin;
     p[1] = y0*cos + x0*sin;
 }
 
 // Rotate a point in ang radians in the corresponding axis
-pub fn rotate_3d(ang: f64, p: &mut [f64;3], axis: [f64;3]){
-    let mut ref_axis: [f64;3] = [axis[0], axis[1], axis[2]];
+pub fn rotate_3d(ang: f32, p: &mut [f32;3], axis: [f32;3]){
+    let mut ref_axis: [f32;3] = [axis[0], axis[1], axis[2]];
     
     // Angle of rotation in the zx plane
-    let mut angzx: f64 = 0.0;
+    let angzx: f32;
     
     // Angle of rotation in the yz plane
-    let mut angyz: f64 = 0.0;
+    let angyz: f32;
        
     // Get the angle between the axis and the yz plane
     angzx = axis[0].atan2(axis[2]);        
@@ -414,27 +414,27 @@ pub fn rotate_3d(ang: f64, p: &mut [f64;3], axis: [f64;3]){
 }
 
 // Translate a point
-pub fn translate_3d(p: &mut [f64;3], dp: [f64;3]){
+pub fn translate_3d(p: &mut [f32;3], dp: [f32;3]){
     *p = [p[0]+dp[0], p[1]+dp[1], p[2]+dp[2]];
 }
 
 // Put camera in a determined position
-pub fn put_camera(new_p0: [f64;3]){
+pub fn put_camera(new_p0: [f32;3]){
     let mut camera = CAMERA.lock();
     
     camera.p0 = new_p0;
 }
 
 // Translate camera
-pub fn translate_camera(dx: f64, dy: f64, dz: f64){
+pub fn translate_camera(dx: f32, dy: f32, dz: f32){
     let mut camera = CAMERA.lock();
     
     camera.p0 = [camera.p0[0]+dx, camera.p0[1]+dy, camera.p0[2]+dz];
 }
 
-pub fn rotate_camera(angh: f64, angv: f64){
+pub fn rotate_camera(angh: f32, angv: f32){
     let mut camera = CAMERA.lock();
-    let mut axis: [f64;3];
+    let mut axis: [f32;3];
     
     if angh != 0.0 {
         axis = [0.0, 1.0, 0.0];
@@ -453,35 +453,35 @@ pub fn rotate_camera(angh: f64, angv: f64){
     }
 }
 
-pub fn pixel_char(chr: char){
+pub fn pixel_char(chr: u8){
     let mut pixel = PIXEL_CHAR.lock();
     
     *pixel = chr;
 }
 
 // Get camera position
-pub fn camera_position() -> [f64;3]{
+pub fn camera_position() -> [f32;3]{
     let camera = CAMERA.lock();
     
     return camera.p0;
 }
 
 // Get camera N vector
-pub fn camera_n() -> [f64;3]{
+pub fn camera_n() -> [f32;3]{
     let camera = CAMERA.lock();
     
     return camera.n;
 }
 
 // Get camera V vector
-pub fn camera_v() -> [f64;3]{
+pub fn camera_v() -> [f32;3]{
     let camera = CAMERA.lock();
     
     return camera.v;
 }
 
 // Get camera U vector
-pub fn camera_u() -> [f64;3]{
+pub fn camera_u() -> [f32;3]{
     let camera = CAMERA.lock();
     
     return camera.u;
@@ -490,17 +490,25 @@ pub fn camera_u() -> [f64;3]{
 pub fn clear_screen() {
     // Aquire lock
     let mut screen = SCREEN.lock();
-    *screen = [' '; SCREEN_SIZE];
+    *screen = [b' '; SCREEN_SIZE];
+    
+    // Go back to the first position (0, 0)
+    print!("\x1B[H");
 }
 
 pub fn print_screen() {
     // Aquire lock
     let screen = SCREEN.lock();
-    
+
     for i in 0..ROWS {
         for j in 0..COLS {
-            print!("{}", screen[j + i*COLS]);
+            // Print pixel
+            print!("{}", screen[j + i*COLS] as char);
         }
+        // Next line
         println!();
+        
+        // Carriage return
+        print!("\x1B[G");
     }
 }
