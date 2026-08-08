@@ -298,18 +298,6 @@ pub fn print_screen() {
         print!("\x1B[G");
         i -= 1;
     }
-    
-    /*for i in 0..ROWS {
-        for j in 0..COLS {
-            // Print pixel
-            print!("{}", screen[j + i*COLS] as char);
-        }
-        // Next line
-        println!();
-        
-        // Carriage return
-        print!("\x1B[G");
-    }*/
 }
 
 pub fn pixel_char(chr: u8){
