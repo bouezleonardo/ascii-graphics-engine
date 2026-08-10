@@ -8,3 +8,8 @@ An ASCII graphics engine that mimics the style of OpenGL. It is very simple, as 
 - Translation
 - Rotation
 - Rasterization (using ASCII as pixels)
+
+## Run and build
+`cargo run` to run.
+`cargo build` to build.
+
