@@ -29,7 +29,7 @@ pub fn label_2d(s: &str, p: [f32; 2]) {
     
     // Check if string slice is ASCII
     if !s.is_ascii() {
-      msg = "ERROR: string not an ascii";
+      msg = "ERROR: string not an ASCII.";
     }
     
     // Print message
