@@ -299,9 +299,13 @@ pub fn print_screen() {
         i -= 1;
     }
 }
-
+/// Change the character being used as pixel
 pub fn pixel_char(chr: u8){
     let mut pixel = PIXEL_CHAR.lock();
     
     *pixel = chr;
+}
+/// Get the character being used as pixel
+pub fn current_pixel_char() -> u8 {
+    *(PIXEL_CHAR.lock())
 }
