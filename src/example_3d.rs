@@ -108,19 +108,7 @@ fn floor(){
         line_3d([i, -100.0, size], [i, -100.0, -size]);
         line_3d([size, -100.0, i], [-size, -100.0, i]);
         
-        i += 50.0;
-    } 
-}
-
-fn ceiling(){
-    let size: f32 = 500.0;
-    
-    let mut i: f32 = -size;
-    while i <= size {
-        line_3d([i, 400.0, size], [i, 400.0, -size]);
-        line_3d([size, 400.0, i], [-size, 400.0, i]);
-        
-        i += 50.0;
+        i += 100.0;
     } 
 } 
 
@@ -157,7 +145,6 @@ pub fn main_loop(){
     loop {
         pixel_char(b'+');
         floor();
-        ceiling();
         
         pixel_char(b'#');
         cube(p1, 40.0, ang, p1, [0.0, 1.0, 0.0]);

@@ -26,22 +26,14 @@ fn draw_point_viewport(p: [i32; 2]) {
 
 /// Draw a line directly on the SCREEN using viewport
 /// coordinates
+/// Draw a line directly on the SCREEN using viewport
+/// coordinates
 fn draw_line_viewport(og: [i32; 2], dst: [i32; 2]) {
-    
-    // Max line size
-    const MAX_SIZE: usize = 5000;
-    
-    // Size of the biggest possible line on the SCREEN 25x25
-    let mut line_x: [i32; MAX_SIZE] = [0;MAX_SIZE];
-    let mut line_y: [i32; MAX_SIZE] = [0;MAX_SIZE];
-    
     // Line equation
     let mut x0: f32 = og[0] as f32;
     let mut y0: f32 = og[1] as f32;
     let mut x1: f32 = dst[0] as f32;
     let mut y1: f32 = dst[1] as f32;
-    let mut x: f32 = x0;
-    let mut y: f32 = y0;
     
     // Make sure ordering is preserved
     if og[0] > dst [0] {
@@ -49,14 +41,18 @@ fn draw_line_viewport(og: [i32; 2], dst: [i32; 2]) {
         y0 = dst[1] as f32;
         x1 = og[0] as f32;
         y1 = og[1] as f32;
-        x = x0;
-        y = y0;
     }
     
-    // Next position in the line arrays
-    let mut cursor: usize; 
-
-    cursor = 0;
+    // Auxiliary
+    let mut x: f32 = x0;
+    let mut y: f32 = y0;
+    let mut m: f32;
+    
+    // Aquire lock
+    let mut screen = SCREEN.lock();
+    
+    // Draw the line in the SCREEN
+    let pixel = PIXEL_CHAR.lock();
     
     // Check if it is vertical x1 == x0
     if og[0] == dst[0] {
@@ -68,34 +64,23 @@ fn draw_line_viewport(og: [i32; 2], dst: [i32; 2]) {
         }
 
         // Vertical Line    
-        while y <= y1 && cursor < MAX_SIZE {
-            line_x[cursor] = x0 as i32;
-            line_y[cursor] = y as i32;
-            cursor += 1;
+        while y <= y1 {
+            // cols + line*n_cols
+            screen[x0 as usize + y as usize * COLS] = *pixel;
             y += 1.0;
         }
     }else{
-        while x <= x1 && cursor < MAX_SIZE {
-            line_x[cursor] = x as i32;
-            line_y[cursor] = y as i32;
+        while x <= x1 {         
+            // cols + line*n_cols
+            screen[x as usize + y as usize * COLS] = *pixel;
             
             // Using the line equation y = (y1 - y0)/(x1 - x0)*(x-x0)+y0
-            y = (y1 - y0)/(x1 - x0)*(x - x0) + y0;
+            m = (y1 - y0)/(x1 - x0);
+            y = m * (x - x0) + y0;
             
-            cursor += 1;
-            x += 0.1;
+            // cos^2 = 1/(1+tan^2)
+            x += 1.0/(1.0+m*m);
         }
-    }
-    
-    // Aquire lock
-    let mut screen = SCREEN.lock();
-    
-    // Draw the line in the SCREEN
-    let pixel = PIXEL_CHAR.lock();
-    
-    for i in 0..cursor {
-        // cols + line*n_cols
-        screen[line_x[i] as usize + line_y[i] as usize * COLS] = *pixel;
     }
 }
 
