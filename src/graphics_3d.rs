@@ -82,8 +82,32 @@ fn find_segment(p: &mut [f32; 3], q: [f32; 3]) {
     p[2] = PC_DISTANCE-1.0;
 }
 
+fn draw_point_depth(p: [f32; 3]) {
+    let mut offset: usize;
+    let mut p_view: [i32;2];
+    let mut opt: Option<[i32;2]>;
+    let p_win: [f32;2] = convert_to_2d(p);
+    
+    // Screen depth
+    let mut s_depth = SCREEN_DEPTH.lock();
+    
+    // Convert window point to viewport
+    opt = window_to_viewport(p_win, [0.0, 0.0]);
+    
+    if opt.is_some() {
+        p_view = opt.unwrap();
+        offset = p_view[0] as usize + p_view[1] as usize * COLS;
+        
+        // Check if the pixel is closer
+        if s_depth[offset] < p[2] {
+            s_depth[offset] = p[2];
+            draw_point_viewport(p_view);
+        }
+    }
+}
+
 /// Use the bufferized pixel information before drawing
-fn buffer_z_depth(og: [f32; 3], dst: [f32; 3]) {
+fn draw_line_depth(og: [f32; 3], dst: [f32; 3]) {
     // Line equation
     let mut x0: f32 = og[0];
     let mut y0: f32 = og[1];
@@ -92,58 +116,43 @@ fn buffer_z_depth(og: [f32; 3], dst: [f32; 3]) {
     let mut y1: f32 = dst[1];
     let mut z1: f32 = dst[2];
     
-    // Make sure ordering is preserved
-    if og[0] > dst [0] {
-        x0 = dst[0];
-        y0 = dst[1];
-        z0 = dst[2];
-        x1 = og[0];
-        y1 = og[1];
-        z1 = og[2];
-    }
+    // Convert point to 2d window point
+    let og_2d: [f32; 2] = convert_to_2d(og);
+    let dst_2d: [f32; 2] = convert_to_2d(dst);
     
-    // Auxiliary
-    let mut x: f32 = x0;
-    let mut y: f32 = y0;
-    let mut z: f32 = z0;
-    let mut t: f32 = 0.0;
+    let mut x_og: f32 = og_2d[0];
+    // Divide to account for the distortion of the terminal
+    let mut y_og: f32 = og_2d[1]/2.0;
+    let mut x_dst: f32 = dst_2d[0];
+    // Divide to account for the distortion of the terminal
+    let mut y_dst: f32 = dst_2d[1]/2.0;
     
-    let dx: f32 = x1-x0;
-    let dy: f32 = y1-y0;
-    let dz: f32 = z1-z0;
+    // See if the line is visible after clipping
+    let line_visible: bool;
+    line_visible = clip(&mut x_og, &mut y_og, &mut x_dst, &mut y_dst, [0.0, 0.0]);
     
-    let mut offset: usize;
-    let mut p_win: [f32;2];
-    let mut p_view: [i32;2];
-    let mut opt: Option<[i32;2]>;
-    
-    // Screen depth
-    let mut s_depth = SCREEN_DEPTH.lock();
-    
-    while t < 1.0 {
-        // (x, y, z) = (x0, y0, z0) + t(dx, dy, dz)
-        x = x0 + t*dx;
-        y = y0 + t*dy;
-        z = z0 + t*dz;
+    if line_visible {
+        // Auxiliary
+        let mut x: f32 = x0;
+        let mut y: f32 = y0;
+        let mut z: f32 = z0;
+        let mut t: f32 = 0.0;
         
-        // Convert point to 2d window point
-        p_win = convert_to_2d([x, y, z]);
+        let dx: f32 = x1-x0;
+        let dy: f32 = y1-y0;
+        let dz: f32 = z1-z0;
         
-        // Convert window point to viewport
-        opt = window_to_viewport(p_win, [0.0, 0.0]);
-        
-        if opt.is_some() {
-            p_view = opt.unwrap();
-            offset = p_view[0] as usize + p_view[1] as usize * COLS;
+        while t < 1.0 {
+            // (x, y, z) = (x0, y0, z0) + t(dx, dy, dz)
+            x = x0 + t*dx;
+            y = y0 + t*dy;
+            z = z0 + t*dz;
             
-            // Check if the pixel is closer
-            if s_depth[offset] < z {
-                s_depth[offset] = z;
-                draw_point_viewport(p_view);
-            }
+            // Draw point
+            draw_point_depth([x, y, z]);
+            
+            t += 0.01;
         }
-        
-        t += 0.01;
     }
 }
 
@@ -155,7 +164,23 @@ fn clear_buffer() {
     *s_depth = [f32::MIN; SCREEN_SIZE];
 }
 
-/// Get two 3D points and convert them
+/// Draw a point on the screen
+pub fn point_3d(p: [f32; 3]) {
+    // Convert point from universe to camera coordinates
+    let p_cam: [f32; 3] = convert_to_camera_coord(p);
+    
+    if p_cam[2] < PC_DISTANCE {
+        if *(DEPTH_ENABLE.lock()) {
+            draw_point_depth(p_cam);
+        } else {
+            // Convert point to 2d window point
+            let p_win: [f32;2] = convert_to_2d(p_cam);
+            draw_point_window(p_win, [0.0, 0.0]);
+        }
+    }
+}
+
+/// Draw a 3d line on the screen
 pub fn line_3d(og: [f32; 3], dst: [f32; 3]) {    
     // Convert points from universe to camera coordinates
     let mut p_3d: [f32; 3] = convert_to_camera_coord(og);
@@ -174,7 +199,7 @@ pub fn line_3d(og: [f32; 3], dst: [f32; 3]) {
     // Check if the points are in the cameras field of view
     if p_3d[2] < PC_DISTANCE && q_3d[2] < PC_DISTANCE {
         if *(DEPTH_ENABLE.lock()) {
-            buffer_z_depth(p_3d, q_3d);
+            draw_line_depth(p_3d, q_3d);
         } else {
             // Convert points to 2D projection
             p_2d = convert_to_2d(p_3d);

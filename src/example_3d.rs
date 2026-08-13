@@ -1,6 +1,6 @@
 use crate::graphics_3d::{line_3d, translate_camera, translate_3d, 
                   rotate_3d, rotate_camera, camera_n, camera_u,
-                  refresh, set_pixel_char};
+                  refresh, set_pixel_char, point_3d};
 
 use std::{thread, time::Duration};
 
@@ -94,8 +94,8 @@ fn circle(pos: [f32;3], radius: f32, ang: f32, center:[f32;3], axis:[f32;3]) {
     }
     
     // Draw points
-    for j in 0..359 {
-        line_3d(points[j], points[j+1]);
+    for j in 0..360 {
+        point_3d(points[j]);
     }
 }
 

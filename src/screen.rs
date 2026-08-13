@@ -85,8 +85,14 @@ pub fn draw_line_viewport(og: [i32; 2], dst: [i32; 2]) {
 }
 
 /// Clip the points in the window before converting to the viewport
-fn clip(x0: &mut f32, y0: &mut f32, x1: &mut f32, y1: &mut f32, 
-xmin: f32, ymin: f32, xmax: f32, ymax: f32) -> bool{
+pub fn 
+clip(x0: &mut f32, y0: &mut f32, x1: &mut f32, y1: &mut f32, wc: [f32; 2]) 
+-> bool{
+    // Window limits
+    let xmin: f32 = wc[0] - ((COLS as f32)/2.0 - 1.0);
+    let xmax: f32 = wc[0] + (COLS as f32)/2.0 - 1.0;
+    let ymin: f32 = wc[1] - ((ROWS as f32)/2.0 - 1.0);
+    let ymax: f32 = wc[1] + (ROWS as f32)/2.0 - 1.0;
     
     // Auxiliary variables
     let mut x_aux: f32;
@@ -254,14 +260,16 @@ pub fn draw_line_window(og: [f32; 2], dst: [f32; 2], wc: [f32; 2]){
     let ymax: f32 = wc[1] + (ROWS as f32)/2.0 - 1.0;
     
     let mut x0: f32 = og[0];
-    let mut y0: f32 = og[1]/2.0; // Divide to account for the distortion of the terminal
+    // Divide to account for the distortion of the terminal
+    let mut y0: f32 = og[1]/2.0;
     let mut x1: f32 = dst[0];
-    let mut y1: f32 = dst[1]/2.0; // Divide to account for the distortion of the terminal
+    // Divide to account for the distortion of the terminal
+    let mut y1: f32 = dst[1]/2.0;
     
     // See if the line is visible after clipping
     let line_visible: bool;
 
-    line_visible = clip(&mut x0, &mut y0, &mut x1, &mut y1, xmin, ymin, xmax, ymax);
+    line_visible = clip(&mut x0, &mut y0, &mut x1, &mut y1, wc);
     
     if line_visible {
         // Convert window coordinates to viewport coordinates
