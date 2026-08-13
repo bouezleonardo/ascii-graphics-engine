@@ -1,7 +1,6 @@
 use crate::graphics_3d::{line_3d, translate_camera, translate_3d, 
-                  rotate_3d, rotate_camera, camera_n, camera_u};
-
-use crate::screen::{print_screen, clear_screen, pixel_char};
+                  rotate_3d, rotate_camera, camera_n, camera_u,
+                  refresh, set_pixel_char};
 
 use std::{thread, time::Duration};
 
@@ -143,10 +142,10 @@ pub fn main_loop(){
     // Clear screen
     print!("\x1B[2J\x1B[H");
     loop {
-        pixel_char(b'+');
+        set_pixel_char(b'+');
         floor();
         
-        pixel_char(b'#');
+        set_pixel_char(b'#');
         cube(p1, 40.0, ang, p1, [0.0, 1.0, 0.0]);
         cube(p2, 40.0, ang, p2, [0.0, 0.0, 1.0]);
         cube(p3, 40.0, ang, p3, [1.0, 0.0, 0.0]);
@@ -156,7 +155,7 @@ pub fn main_loop(){
         cube(p6, 40.0, ang, p6, [1.0, 0.0, 1.0]);
     
         
-        pixel_char(b'*');
+        set_pixel_char(b'*');
         cube([0.0,0.0,-250.0], 20.0, ang*10.0, [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
         cube([0.0,0.0, 250.0], 20.0, -ang*10.0, [0.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
         cube([0.0,0.0, 250.0], 20.0, -ang*10.0, [0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
@@ -166,7 +165,7 @@ pub fn main_loop(){
         cube([5.0,0.0,-1000.0], 60.0, ang*10.0, [5.0,0.0,-1000.0], [0.0,0.0,1.0]);
         
         // Sphere
-        pixel_char(b'O');
+        set_pixel_char(b'O');
         circle(p0, 30.0, ang*10.0, p0, [0.0, 1.0, 0.0]);
         circle(p0, 30.0, ang*10.0 + 1.570796, p0, [0.0, 1.0, 0.0]);
         circle(p0, 30.0, ang*10.0 - 0.785398, p0, [0.0, 1.0, 0.0]);
@@ -174,11 +173,8 @@ pub fn main_loop(){
         
         thread::sleep(Duration::from_millis(17));
         
-        // Print screen to the teminal
-        print_screen();
-        
-        // Clear screen
-        clear_screen();
+        // Refresh screen
+        refresh();
         
         ang+= 0.0017;
         

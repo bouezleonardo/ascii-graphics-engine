@@ -1,7 +1,6 @@
 use crate::graphics_2d::{line_2d, translate_window, put_window,
-                        point_2d, translate_2d, label_2d, rotate_2d};
-
-use crate::screen::{print_screen, clear_screen, pixel_char};
+                        point_2d, translate_2d, label_2d, rotate_2d,
+                        refresh, set_pixel_char};
 
 use std::{thread, time::Duration};
 
@@ -109,7 +108,7 @@ pub fn main_loop(){
         label_2d("Press 'q' to quit", [-8.0, 15.0]);
     
         // Squares
-        pixel_char(b'#');
+        set_pixel_char(b'#');
         square(s0, ang);
         square(s1, 0.0);
         circle([0.0,0.0], 10.0);
@@ -117,17 +116,14 @@ pub fn main_loop(){
         triangle(t0, ang);
         
         // Player Character
-        pixel_char(b'$');
+        set_pixel_char(b'$');
         circle(p, 2.0);
         label_2d(label, [p[0]-1.0, p[1]+4.0]);
         
         thread::sleep(Duration::from_millis(17));
         
-        // Print screen to the teminal
-        print_screen();
-        
-        // Clear screen
-        clear_screen();
+        // Refresh screen
+        refresh();
         
         ang+= 0.017;
         

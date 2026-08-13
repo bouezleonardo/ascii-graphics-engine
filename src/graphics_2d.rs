@@ -1,8 +1,5 @@
 use spin::Mutex;
-use crate::screen::{draw_point_window,
-                    draw_line_window,
-                    pixel_char,
-                    current_pixel_char};
+use crate::screen::*;
 
 /// Window center is the center of what is being
 /// shown on the screen. If something is outside
@@ -70,4 +67,15 @@ pub fn translate_window(dwc: [f32; 2]) {
     let mut wc = WIN_CENTER.lock();
     wc[0] += dwc[0];
     wc[1] += dwc[1];
+}
+
+/// Refresh screen
+pub fn refresh() {
+    print_screen();
+    clear_screen();
+}
+
+/// Change the character being used as pixel
+pub fn set_pixel_char(chr: u8) {
+    pixel_char(chr);
 }

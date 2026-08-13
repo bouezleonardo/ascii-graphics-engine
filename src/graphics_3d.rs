@@ -15,8 +15,32 @@ struct Camera {
     pc: [f32;3],
 }
 
+/// 3d line to allow depth
+#[derive(Copy, Clone)]
+struct Line3d {
+    // Origin point
+    og: [f32;3],
+    // Destination point
+    dst: [f32;3],
+    // Biggest z component between og and dst
+    z: f32,
+    // Character pixel of the line
+    chr: u8,
+}
+impl Line3d {
+    /// Initialize a line
+    pub const fn new() -> Self {
+        Self {
+            og: [0.0;3],
+            dst: [0.0;3],
+            z: 0.0,
+            chr: b'#',
+        }
+    } 
+}
+
 /// Projection center distance from the
-/// projection center
+/// projection plane
 const PC_DISTANCE: f32 = 50.0;
 
 /// Camera
@@ -27,6 +51,14 @@ static CAMERA: Mutex<Camera> = Mutex::new(Camera{
     u: [1.0, 0.0, 0.0],
     pc: [0.0, 0.0, PC_DISTANCE],
 });
+
+/// Enable/disable depth
+static DEPTH_ENABLE: Mutex<bool> = Mutex::new(false);
+/// Buffer lines to respect depth
+static L_BUFF: Mutex<[Line3d;10000]> = Mutex::new([Line3d::new();10000]);
+
+/// Buffer counter
+static L_BUFF_COUNT: Mutex<usize> = Mutex::new(0);
 
 /// Convert a 3D point to the 2D projection
 fn convert_to_2d(q: [f32; 3]) -> [f32; 2]{
@@ -45,7 +77,8 @@ fn dot(p: [f32;3], q: [f32;3]) -> f32{
     return p[0]*q[0] + p[1]*q[1] + p[2]*q[2];
 }
 
-/// Convert a point in the universe coordinates to the camera coordinates
+/// Convert a point in the universe coordinates to 
+/// the camera coordinates
 fn convert_to_camera_coord(q: [f32; 3]) -> [f32; 3]{
     let camera = CAMERA.lock();
     
@@ -75,6 +108,84 @@ fn find_segment(p: &mut [f32; 3], q: [f32; 3]) {
     p[2] = PC_DISTANCE-1.0;
 }
 
+/// Bufferize the lines to be ordered later
+fn bufferize_line(p: [f32; 3], q: [f32; 3]) {
+    let mut line_buffer = L_BUFF.lock();
+    let mut count = L_BUFF_COUNT.lock();
+    
+    // Get the biggest z
+    let mut big_z: f32 = p[2];
+    if big_z < q[2] {
+        big_z = q[2];
+    }
+    
+    // Put the line in the buffer
+    if *count < line_buffer.len() {
+        line_buffer[*count] = Line3d {
+            og: p,
+            dst: q,
+            z: big_z,
+            chr: current_pixel_char(),
+        };
+        // Increment count
+        *count += 1;
+    }
+}
+
+/// Reorder line buffer from the smallest to largest z
+fn reorder_line_buffer() {
+    let mut line_buffer = L_BUFF.lock();
+    let count = L_BUFF_COUNT.lock();
+    let mut aux: Line3d;
+    let mut smallest: Line3d;
+    let mut small_idx: usize;
+    
+    // First loop limits the sub array
+    for i in 0..*count {
+        smallest = line_buffer[i];
+        small_idx = i;
+        
+        // Second loop finds the smallest
+        for j in i..*count {
+            if smallest.z > line_buffer[j].z {
+                smallest = line_buffer[j];
+                small_idx = j;
+            }
+        }
+        
+        // Swap places to put smallest in the begining
+        aux = line_buffer[i];
+        line_buffer[i] = smallest;
+        line_buffer[small_idx] = aux;
+    }
+}
+
+/// Draw line buffer to the screen
+fn draw_line_buffer() {
+    let line_buffer = L_BUFF.lock();
+    let count = L_BUFF_COUNT.lock();
+    let mut p_2d: [f32; 2];
+    let mut q_2d: [f32; 2];
+    
+    // Draw to the screen framebuffer
+    for i in 0..*count {
+        // Convert points to 2D projection
+        p_2d = convert_to_2d(line_buffer[i].og);
+        q_2d = convert_to_2d(line_buffer[i].dst);
+        
+        // Set pixel char
+        pixel_char(line_buffer[i].chr);
+        
+        // Prepare the window to draw with center in 0, 0
+        draw_line_window(p_2d, q_2d, [0.0, 0.0]);
+    }
+}
+
+/// Clear line buffer
+fn clear_line_buffer() {
+    *(L_BUFF_COUNT.lock()) = 0;
+}
+
 /// Get two 3D points and convert them
 pub fn line_3d(og: [f32; 3], dst: [f32; 3]) {    
     // Convert points from universe to camera coordinates
@@ -93,11 +204,16 @@ pub fn line_3d(og: [f32; 3], dst: [f32; 3]) {
     
     // Check if the points are in the cameras field of view
     if p_3d[2] < PC_DISTANCE && q_3d[2] < PC_DISTANCE {
-        // Convert points to 2D projection
-        p_2d = convert_to_2d(p_3d);
-        q_2d = convert_to_2d(q_3d);
-        // Prepare the window to draw with center in 0, 0
-        draw_line_window(p_2d, q_2d, [0.0, 0.0]);
+        // Check if it should bufferize or write right away
+        if *(DEPTH_ENABLE.lock()) {
+            bufferize_line(p_3d, q_3d);
+        } else {
+            // Convert points to 2D projection
+            p_2d = convert_to_2d(p_3d);
+            q_2d = convert_to_2d(q_3d);
+            // Prepare the window to draw with center in 0, 0
+            draw_line_window(p_2d, q_2d, [0.0, 0.0]);
+        }
     }
 }
 
@@ -241,4 +357,21 @@ pub fn camera_u() -> [f32;3]{
     let camera = CAMERA.lock();
     
     return camera.u;
+}
+
+/// Refresh screen
+pub fn refresh() {
+    // Draw based on the buffer
+    if *(DEPTH_ENABLE.lock()) {
+        reorder_line_buffer();
+        draw_line_buffer();
+        clear_line_buffer();
+    }
+    print_screen();
+    clear_screen();
+}
+
+/// Change the character being used as pixel
+pub fn set_pixel_char(chr: u8) {
+    pixel_char(chr);
 }
