@@ -15,20 +15,6 @@ struct Camera {
     pc: [f32;3],
 }
 
-#[derive(Copy, Clone)]
-struct Point {
-    z: f32, // z depth
-    chr: u8,// Pixel character
-}
-impl Point {
-    pub const fn new() -> Self {
-        Self{
-            z: f32::MIN,
-            chr: b'.',
-        }
-    }
-}
-
 /// Projection center distance from the
 /// projection plane
 const PC_DISTANCE: f32 = 50.0;
@@ -37,7 +23,7 @@ const PC_DISTANCE: f32 = 50.0;
 static DEPTH_ENABLE: Mutex<bool> = Mutex::new(true);
 
 /// Depth buffer to save each screen pixel's depth
-static SCREEN_DEPTH: Mutex<[Point;SCREEN_SIZE]> = Mutex::new([Point::new();SCREEN_SIZE]);
+static SCREEN_DEPTH: Mutex<[f32;SCREEN_SIZE]> = Mutex::new([f32::MIN;SCREEN_SIZE]);
 
 /// Camera
 static CAMERA: Mutex<Camera> = Mutex::new(Camera{
@@ -96,7 +82,7 @@ fn find_segment(p: &mut [f32; 3], q: [f32; 3]) {
     p[2] = PC_DISTANCE-1.0;
 }
 
-/// Bufferize pixels before drawing to respect depth
+/// Use the bufferized pixel information before drawing
 fn buffer_z_depth(og: [f32; 3], dst: [f32; 3]) {
     // Line equation
     let mut x0: f32 = og[0];
@@ -151,40 +137,22 @@ fn buffer_z_depth(og: [f32; 3], dst: [f32; 3]) {
             offset = p_view[0] as usize + p_view[1] as usize * COLS;
             
             // Check if the pixel is closer
-            if s_depth[offset].z < z {
-                s_depth[offset] = Point{
-                    z: z,
-                    chr: current_pixel_char(),
-                };
+            if s_depth[offset] < z {
+                s_depth[offset] = z;
+                draw_point_viewport(p_view);
             }
         }
         
         t += 0.01;
     }
 }
-/// Draw buffer to viewport screen
-fn draw_buffer() {
-    // Screen depth
-    let s_depth = SCREEN_DEPTH.lock();
-    
-    for y in 0..ROWS {
-        for x in 0..COLS{
-            pixel_char(s_depth[x + y * COLS].chr);
-            draw_point_viewport([x as i32, y as i32]);
-        }
-    }
-}
+
 /// Clear buffer
 fn clear_buffer() {
     // Screen depth
     let mut s_depth = SCREEN_DEPTH.lock();
     
-    for y in 0..ROWS {
-        for x in 0..COLS{
-            s_depth[x + y * COLS].z = f32::MIN;
-            s_depth[x + y * COLS].chr = b' ';
-        }
-    }
+    *s_depth = [f32::MIN; SCREEN_SIZE];
 }
 
 /// Get two 3D points and convert them
@@ -362,7 +330,6 @@ pub fn camera_u() -> [f32;3]{
 /// Refresh screen
 pub fn refresh() {
     if *(DEPTH_ENABLE.lock()) {
-        draw_buffer();
         clear_buffer();
     }
     
