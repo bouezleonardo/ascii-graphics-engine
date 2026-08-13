@@ -1,8 +1,8 @@
 use spin::Mutex;
 
 // Resolution
-pub const COLS: usize = 80;
-pub const ROWS: usize = 24;
+pub const COLS: usize = 190;
+pub const ROWS: usize = 44;
 pub const SCREEN_SIZE: usize = COLS*ROWS;
 
 // Screen (in viewport coordinates)

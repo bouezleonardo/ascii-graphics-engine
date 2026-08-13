@@ -96,10 +96,8 @@ fn find_segment(p: &mut [f32; 3], q: [f32; 3]) {
     p[2] = PC_DISTANCE-1.0;
 }
 
-/// This 
+/// Bufferize pixels before drawing to respect depth
 fn buffer_z_depth(og: [f32; 3], dst: [f32; 3]) {
-    // Using the 3d line equation (x-x0)/(x1-x0) = (y-y0)/(y1-y0) = (z-z0)/(z1-z0)
-    
     // Line equation
     let mut x0: f32 = og[0];
     let mut y0: f32 = og[1];
@@ -123,9 +121,11 @@ fn buffer_z_depth(og: [f32; 3], dst: [f32; 3]) {
     let mut y: f32 = y0;
     let mut z: f32 = z0;
     let mut t: f32 = 0.0;
+    
     let dx: f32 = x1-x0;
     let dy: f32 = y1-y0;
     let dz: f32 = z1-z0;
+    
     let mut offset: usize;
     let mut p_win: [f32;2];
     let mut p_view: [i32;2];
@@ -134,8 +134,7 @@ fn buffer_z_depth(og: [f32; 3], dst: [f32; 3]) {
     // Screen depth
     let mut s_depth = SCREEN_DEPTH.lock();
     
-    
-    while x < x1 {
+    while t < 1.0 {
         // (x, y, z) = (x0, y0, z0) + t(dx, dy, dz)
         x = x0 + t*dx;
         y = y0 + t*dy;
@@ -159,6 +158,7 @@ fn buffer_z_depth(og: [f32; 3], dst: [f32; 3]) {
                 };
             }
         }
+        
         t += 0.01;
     }
 }
