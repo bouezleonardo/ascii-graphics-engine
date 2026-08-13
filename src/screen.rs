@@ -1,9 +1,9 @@
 use spin::Mutex;
 
 // Resolution
-const COLS: usize = 80;
-const ROWS: usize = 24;
-const SCREEN_SIZE: usize = COLS*ROWS;
+pub const COLS: usize = 80;
+pub const ROWS: usize = 24;
+pub const SCREEN_SIZE: usize = COLS*ROWS;
 
 // Screen (in viewport coordinates)
 static SCREEN: Mutex<[u8; SCREEN_SIZE]> = Mutex::new([b' '; SCREEN_SIZE]);
@@ -13,7 +13,7 @@ static PIXEL_CHAR: Mutex<u8> = Mutex::new(b'#');
 
 /// Draw a point directly on the SCREEN using viewport
 /// coordinates
-fn draw_point_viewport(p: [i32; 2]) {
+pub fn draw_point_viewport(p: [i32; 2]) {
   // Aquire lock
     let mut screen = SCREEN.lock();
     
@@ -28,7 +28,7 @@ fn draw_point_viewport(p: [i32; 2]) {
 /// coordinates
 /// Draw a line directly on the SCREEN using viewport
 /// coordinates
-fn draw_line_viewport(og: [i32; 2], dst: [i32; 2]) {
+pub fn draw_line_viewport(og: [i32; 2], dst: [i32; 2]) {
     // Line equation
     let mut x0: f32 = og[0] as f32;
     let mut y0: f32 = og[1] as f32;
@@ -200,10 +200,31 @@ xmin: f32, ymin: f32, xmax: f32, ymax: f32) -> bool{
     return true;
 }
 
+/// Convert point from window to viewport coordinates
+pub fn window_to_viewport(p: [f32; 2], wc: [f32; 2]) -> Option<[i32;2]> {
+    // Window limits
+    let xmin: f32 = wc[0] - ((COLS as f32)/2.0 - 1.0);
+    let xmax: f32 = wc[0] + (COLS as f32)/2.0 - 1.0;
+    let ymin: f32 = wc[1] - ((ROWS as f32)/2.0 - 1.0);
+    let ymax: f32 = wc[1] + (ROWS as f32)/2.0 - 1.0;
+    
+    let mut x: f32 = p[0];
+    let mut y: f32 = p[1]/2.0; // Divide to account for the distortion of the terminal
+    
+    if x >= xmin && x <= xmax && y >= ymin && y <= ymax {
+        // Convert window coordinates to viewport coordinates
+        x = (x - xmin)*(COLS as f32 - 1.0)/(xmax-xmin);
+        y = (y - ymin)*(ROWS as f32 - 1.0)/(ymax-ymin);
+        
+        // Draw on SCREEN
+        return Some([x as i32, y as i32]);
+    }
+    None
+}
+
 /// Converts from the 2D Window coordinates to the viewport before
 /// drawing a point
 pub fn draw_point_window(p: [f32; 2], wc: [f32; 2]) {
-    
     // Window limits
     let xmin: f32 = wc[0] - ((COLS as f32)/2.0 - 1.0);
     let xmax: f32 = wc[0] + (COLS as f32)/2.0 - 1.0;

@@ -15,33 +15,29 @@ struct Camera {
     pc: [f32;3],
 }
 
-/// 3d line to allow depth
 #[derive(Copy, Clone)]
-struct Line3d {
-    // Origin point
-    og: [f32;3],
-    // Destination point
-    dst: [f32;3],
-    // Biggest z component between og and dst
-    z: f32,
-    // Character pixel of the line
-    chr: u8,
+struct Point {
+    z: f32, // z depth
+    chr: u8,// Pixel character
 }
-impl Line3d {
-    /// Initialize a line
+impl Point {
     pub const fn new() -> Self {
-        Self {
-            og: [0.0;3],
-            dst: [0.0;3],
-            z: 0.0,
-            chr: b'#',
+        Self{
+            z: f32::MIN,
+            chr: b'.',
         }
-    } 
+    }
 }
 
 /// Projection center distance from the
 /// projection plane
 const PC_DISTANCE: f32 = 50.0;
+
+/// Enable/disable depth
+static DEPTH_ENABLE: Mutex<bool> = Mutex::new(true);
+
+/// Depth buffer to save each screen pixel's depth
+static SCREEN_DEPTH: Mutex<[Point;SCREEN_SIZE]> = Mutex::new([Point::new();SCREEN_SIZE]);
 
 /// Camera
 static CAMERA: Mutex<Camera> = Mutex::new(Camera{
@@ -51,14 +47,6 @@ static CAMERA: Mutex<Camera> = Mutex::new(Camera{
     u: [1.0, 0.0, 0.0],
     pc: [0.0, 0.0, PC_DISTANCE],
 });
-
-/// Enable/disable depth
-static DEPTH_ENABLE: Mutex<bool> = Mutex::new(false);
-/// Buffer lines to respect depth
-static L_BUFF: Mutex<[Line3d;10000]> = Mutex::new([Line3d::new();10000]);
-
-/// Buffer counter
-static L_BUFF_COUNT: Mutex<usize> = Mutex::new(0);
 
 /// Convert a 3D point to the 2D projection
 fn convert_to_2d(q: [f32; 3]) -> [f32; 2]{
@@ -108,82 +96,95 @@ fn find_segment(p: &mut [f32; 3], q: [f32; 3]) {
     p[2] = PC_DISTANCE-1.0;
 }
 
-/// Bufferize the lines to be ordered later
-fn bufferize_line(p: [f32; 3], q: [f32; 3]) {
-    let mut line_buffer = L_BUFF.lock();
-    let mut count = L_BUFF_COUNT.lock();
+/// This 
+fn buffer_z_depth(og: [f32; 3], dst: [f32; 3]) {
+    // Using the 3d line equation (x-x0)/(x1-x0) = (y-y0)/(y1-y0) = (z-z0)/(z1-z0)
     
-    // Get the biggest z
-    let mut big_z: f32 = p[2];
-    if big_z < q[2] {
-        big_z = q[2];
+    // Line equation
+    let mut x0: f32 = og[0];
+    let mut y0: f32 = og[1];
+    let mut z0: f32 = og[2];
+    let mut x1: f32 = dst[0];
+    let mut y1: f32 = dst[1];
+    let mut z1: f32 = dst[2];
+    
+    // Make sure ordering is preserved
+    if og[0] > dst [0] {
+        x0 = dst[0];
+        y0 = dst[1];
+        z0 = dst[2];
+        x1 = og[0];
+        y1 = og[1];
+        z1 = og[2];
     }
     
-    // Put the line in the buffer
-    if *count < line_buffer.len() {
-        line_buffer[*count] = Line3d {
-            og: p,
-            dst: q,
-            z: big_z,
-            chr: current_pixel_char(),
-        };
-        // Increment count
-        *count += 1;
-    }
-}
-
-/// Reorder line buffer from the smallest to largest z
-fn reorder_line_buffer() {
-    let mut line_buffer = L_BUFF.lock();
-    let count = L_BUFF_COUNT.lock();
-    let mut aux: Line3d;
-    let mut smallest: Line3d;
-    let mut small_idx: usize;
+    // Auxiliary
+    let mut x: f32 = x0;
+    let mut y: f32 = y0;
+    let mut z: f32 = z0;
+    let mut t: f32 = 0.0;
+    let dx: f32 = x1-x0;
+    let dy: f32 = y1-y0;
+    let dz: f32 = z1-z0;
+    let mut offset: usize;
+    let mut p_win: [f32;2];
+    let mut p_view: [i32;2];
+    let mut opt: Option<[i32;2]>;
     
-    // First loop limits the sub array
-    for i in 0..*count {
-        smallest = line_buffer[i];
-        small_idx = i;
+    // Screen depth
+    let mut s_depth = SCREEN_DEPTH.lock();
+    
+    
+    while x < x1 {
+        // (x, y, z) = (x0, y0, z0) + t(dx, dy, dz)
+        x = x0 + t*dx;
+        y = y0 + t*dy;
+        z = z0 + t*dz;
         
-        // Second loop finds the smallest
-        for j in i..*count {
-            if smallest.z > line_buffer[j].z {
-                smallest = line_buffer[j];
-                small_idx = j;
+        // Convert point to 2d window point
+        p_win = convert_to_2d([x, y, z]);
+        
+        // Convert window point to viewport
+        opt = window_to_viewport(p_win, [0.0, 0.0]);
+        
+        if opt.is_some() {
+            p_view = opt.unwrap();
+            offset = p_view[0] as usize + p_view[1] as usize * COLS;
+            
+            // Check if the pixel is closer
+            if s_depth[offset].z < z {
+                s_depth[offset] = Point{
+                    z: z,
+                    chr: current_pixel_char(),
+                };
             }
         }
-        
-        // Swap places to put smallest in the begining
-        aux = line_buffer[i];
-        line_buffer[i] = smallest;
-        line_buffer[small_idx] = aux;
+        t += 0.01;
     }
 }
-
-/// Draw line buffer to the screen
-fn draw_line_buffer() {
-    let line_buffer = L_BUFF.lock();
-    let count = L_BUFF_COUNT.lock();
-    let mut p_2d: [f32; 2];
-    let mut q_2d: [f32; 2];
+/// Draw buffer to viewport screen
+fn draw_buffer() {
+    // Screen depth
+    let s_depth = SCREEN_DEPTH.lock();
     
-    // Draw to the screen framebuffer
-    for i in 0..*count {
-        // Convert points to 2D projection
-        p_2d = convert_to_2d(line_buffer[i].og);
-        q_2d = convert_to_2d(line_buffer[i].dst);
-        
-        // Set pixel char
-        pixel_char(line_buffer[i].chr);
-        
-        // Prepare the window to draw with center in 0, 0
-        draw_line_window(p_2d, q_2d, [0.0, 0.0]);
+    for y in 0..ROWS {
+        for x in 0..COLS{
+            pixel_char(s_depth[x + y * COLS].chr);
+            draw_point_viewport([x as i32, y as i32]);
+        }
     }
 }
-
-/// Clear line buffer
-fn clear_line_buffer() {
-    *(L_BUFF_COUNT.lock()) = 0;
+/// Clear buffer
+fn clear_buffer() {
+    // Screen depth
+    let mut s_depth = SCREEN_DEPTH.lock();
+    
+    for y in 0..ROWS {
+        for x in 0..COLS{
+            s_depth[x + y * COLS].z = f32::MIN;
+            s_depth[x + y * COLS].chr = b' ';
+        }
+    }
 }
 
 /// Get two 3D points and convert them
@@ -204,9 +205,8 @@ pub fn line_3d(og: [f32; 3], dst: [f32; 3]) {
     
     // Check if the points are in the cameras field of view
     if p_3d[2] < PC_DISTANCE && q_3d[2] < PC_DISTANCE {
-        // Check if it should bufferize or write right away
         if *(DEPTH_ENABLE.lock()) {
-            bufferize_line(p_3d, q_3d);
+            buffer_z_depth(p_3d, q_3d);
         } else {
             // Convert points to 2D projection
             p_2d = convert_to_2d(p_3d);
@@ -361,12 +361,11 @@ pub fn camera_u() -> [f32;3]{
 
 /// Refresh screen
 pub fn refresh() {
-    // Draw based on the buffer
     if *(DEPTH_ENABLE.lock()) {
-        reorder_line_buffer();
-        draw_line_buffer();
-        clear_line_buffer();
+        draw_buffer();
+        clear_buffer();
     }
+    
     print_screen();
     clear_screen();
 }
